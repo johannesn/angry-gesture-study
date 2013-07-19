@@ -14,6 +14,24 @@ using Maussteuerung;
 
 namespace AngryBirdsStudie3
 {
+    struct Pig
+    {
+        public Texture2D texture;
+        public Point position;
+        public enum PigState { Alive, Dead };
+        public PigState state;
+    }
+
+    struct Bird
+    {
+        public Texture2D texture;
+        public Point position;
+        public enum BirdState { Idle, Firing, Flying, Activated, Dead };
+        public BirdState state;
+        public BirdType type;
+        public enum BirdType { Red, Yellow };
+    }
+
     /// <summary>
     /// This is the main type for your game
     /// </summary>
@@ -26,19 +44,21 @@ namespace AngryBirdsStudie3
         // Texturen
         Texture2D background;
         Texture2D flitsche;
-        Texture2D bird;
+        Bird[] birds;
+        Pig[] pigs;
         Texture2D gummi;
         Texture2D handOpen;
         Texture2D handClosed;
-        Texture2D[] pigs;
+        Texture2D gameOver;
+        SpriteFont font;
 
         // Drawing Points
         Rectangle mainFrame;
         Point flitschePosition = new Point(50, 730);
         Point initialBirdPosition = new Point(135, 755);
-        Point birdPosition = new Point(135, 755);
         Point linkerPfosten = new Point(140, 780);
         Point rechterPfosten = new Point(180, 780);
+        int groundLine = 880;
         enum InterfaceType { InterfaceGesture, InterfaceMouse };
         InterfaceType interfaceType = InterfaceType.InterfaceMouse;
         GestenInterface gameInterface;
@@ -61,7 +81,7 @@ namespace AngryBirdsStudie3
         }
 
         // Game state parameter
-        enum GameState { Idle, Firing, Flying };
+        enum GameState { Idle, Firing, Flying, GameOver };
         GameState currentState = GameState.Idle;
 
         // Parabel Parameter y = ax^2  + bx + c
@@ -75,7 +95,7 @@ namespace AngryBirdsStudie3
             Content.RootDirectory = "Content";
             this.graphics.PreferredBackBufferWidth = 1920;
             this.graphics.PreferredBackBufferHeight = 1080;
-            graphics.IsFullScreen = true;
+            //graphics.IsFullScreen = true;
 
             if (interfaceType == InterfaceType.InterfaceMouse)
             {
@@ -108,24 +128,46 @@ namespace AngryBirdsStudie3
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
+            // Set the rectangle parameters.
+            mainFrame = new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
 
             // Load the background content.
             background = Content.Load<Texture2D>("background");
             flitsche = Content.Load<Texture2D>("flitsche");
-            bird = Content.Load<Texture2D>("bird");
             handOpen = Content.Load<Texture2D>("hand_open");
             handClosed = Content.Load<Texture2D>("hand_closed");
+            gameOver = Content.Load<Texture2D>("gameOverWindow");
+            font = Content.Load<SpriteFont>("spriteFont1");
             gummi = new Texture2D(GraphicsDevice, 1, 1);
             gummi.SetData<Color>(
                 new Color[] { new Color(135, 61, 39) });
-            pigs = new Texture2D[10];
-            for (int i = 0; i < pigs.Length; i++)
+
+            initialize();
+        }
+
+        private void initialize()
+        {
+            birds = new Bird[5];
+            for (int i = 0; i < birds.Length; i++)
             {
-                pigs[i] = Content.Load<Texture2D>("pig" + (i + 1));
+                birds[i].texture = Content.Load<Texture2D>(i % 2 == 0 ? "bird" : "yellowbird");
+                birds[i].type = i % 2 == 0 ? Bird.BirdType.Red : Bird.BirdType.Yellow;
+                birds[i].state = Bird.BirdState.Idle;
+                birds[i].position = i == 0 ? initialBirdPosition : new Point(135 + 50 * i, groundLine);
             }
 
-            // Set the rectangle parameters.
-            mainFrame = new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            pigs = new Pig[10];
+            for (int i = 0; i < pigs.Length; i++)
+            {
+                pigs[i].texture = Content.Load<Texture2D>("pig" + (i + 1));
+                pigs[i].position = new Point(mainFrame.Width - (1 + i) * 100, groundLine);
+                pigs[i].state = Pig.PigState.Alive;
+            }
+
+            currentState = GameState.Idle;
+
+            cameraPoint = new Point(0, 0);
+            zoomLevel = 1.0f;
         }
 
         /// <summary>
@@ -154,18 +196,47 @@ namespace AngryBirdsStudie3
                 mouseInterface.updateMouseState(Mouse.GetState());
             }
 
+            if (Keyboard.GetState().IsKeyDown(Keys.Enter))
+            {
+                initialize();
+            }
+
             if (currentState == GameState.Flying)
             {
-                double x = 100.0d * (System.Environment.TickCount - t0) / 1000.0d + x0;
+                double x = (initialBirdPosition.X - x0) * 10.0f * (System.Environment.TickCount - t0) / 1000.0d + x0;
                 double y = a * Math.Pow(x, 2) + b * x + c;
                 //System.Console.WriteLine("x = " + x + " ; y = " + y + " ; t = "+ (System.Environment.TickCount - t0));
-                if (y >= 880 && x >= 160)
+                if (y >= groundLine)
                 {
-                    y = 880;
-                    currentState = GameState.Idle;
+                    y = groundLine;
                 }
 
-                birdPosition = new Point((int)x, (int)y);
+                birds[0].position = new Point((int)x, (int)y);
+
+                for (int i = 0; i < pigs.Length; i++)
+                {
+                    if (new Vector2(birds[0].position.X - pigs[i].position.X, birds[0].position.Y - pigs[i].position.Y).Length() < 40.0f)
+                    {
+                        pigs[i].state = Pig.PigState.Dead;
+                    }
+                }
+
+                if (y >= groundLine && x >= 135)
+                {
+                    currentState = GameState.Idle;
+                    if (birds.Length > 1)
+                    {
+                        Bird[] tmp = new Bird[birds.Length - 1];
+                        Array.Copy(birds, 1, tmp, 0, birds.Length - 1);
+                        birds = tmp;
+                        birds[0].position = initialBirdPosition;
+                    }
+                    else
+                    {
+                        currentState = GameState.GameOver;
+                        birds = new Bird[0];
+                    }
+                }
             }
 
             base.Update(gameTime);
@@ -190,18 +261,26 @@ namespace AngryBirdsStudie3
             // Draw Pigs
             for (int i = 0; i < pigs.Length; i++)
             {
-                spriteBatch.Draw(pigs[i], new Rectangle(mainFrame.Width - (1 + i) * 100, 880, 50, 50), Color.White);
+                if (pigs[i].state == Pig.PigState.Alive)
+                {
+                    spriteBatch.Draw(pigs[i].texture, new Rectangle(pigs[i].position.X, pigs[i].position.Y, 50, 50), Color.White);
+                }
             }
 
-            Vector2 vogelfassungPosition = birdPosition.X <= 160 ? new Vector2(birdPosition.X + 25, birdPosition.Y + 25) : new Vector2(initialBirdPosition.X + 25, initialBirdPosition.Y + 25);
+            Vector2 vogelfassungPosition = birds.Length > 0 && birds[0].position.X < 160 ? new Vector2(birds[0].position.X + 25, birds[0].position.Y + 25) : new Vector2(initialBirdPosition.X + 25, initialBirdPosition.Y + 25);
             // Draw hinteres Gummi
             DrawLine(spriteBatch, new Vector2(rechterPfosten.X, rechterPfosten.Y), vogelfassungPosition, 5);
             // Draw Flitsche
             spriteBatch.Draw(flitsche, new Rectangle(flitschePosition.X, flitschePosition.Y, 220, 220), Color.White);
             // Draw Bird
-            spriteBatch.Draw(bird, new Rectangle(birdPosition.X, birdPosition.Y, 50, 50), Color.White);
+
+            foreach (Bird bird in birds)
+            {
+                spriteBatch.Draw(bird.texture, new Rectangle(bird.position.X, bird.position.Y, 50, 50), Color.White);
+            }
+
             // Calculate Vogelfassung
-            Vector2 flitscheToVogel = new Vector2(vogelfassungPosition.X-25 - linkerPfosten.X, vogelfassungPosition.Y-25 - linkerPfosten.Y);
+            Vector2 flitscheToVogel = new Vector2(vogelfassungPosition.X - 25 - linkerPfosten.X, vogelfassungPosition.Y - 25 - linkerPfosten.Y);
             Vector2 vogelFassungDirection = new Vector2(1.0f, -flitscheToVogel.X / flitscheToVogel.Y);
             vogelFassungDirection.Normalize();
             vogelFassungDirection = vogelFassungDirection * 15;
@@ -217,6 +296,22 @@ namespace AngryBirdsStudie3
             spriteBatch.Begin();
             // Draw Pointer
             spriteBatch.Draw(pointerState == PointerState.PointerOpen ? handOpen : handClosed, new Rectangle(pointerPosition.X - 50, pointerPosition.Y - 50, 100, 100), Color.White);
+            if (currentState == GameState.GameOver)
+            {
+                int score = 0;
+                foreach (Pig pig in pigs)
+                {
+                    if (pig.state == Pig.PigState.Dead)
+                    {
+                        score++;
+                    }
+                }
+                string message = String.Format("GAME OVER!!!{0}Du hast {1} Schweine erwischt!{0}Druecke Eingabe um ein{0}neues Spiel zu starten!", Environment.NewLine, score);
+                Vector2 FontOrigin = font.MeasureString(message) / 2;
+                spriteBatch.Draw(gameOver, new Vector2(mainFrame.Width / 4, mainFrame.Height / 4), Color.White);
+                spriteBatch.DrawString(font, message, new Vector2(mainFrame.Width / 2, mainFrame.Height / 2), Color.White,
+                              0, FontOrigin, 1.0f, SpriteEffects.None, 0.5f);
+            }
             spriteBatch.End();
 
             base.Draw(gameTime);
@@ -246,29 +341,29 @@ namespace AngryBirdsStudie3
 
         public void grabBird(Point position)
         {
-            if (currentState != GameState.Flying)
+            if (currentState != GameState.Flying && birds.Length > 0)
             {
-                birdPosition = transform(position);
+                birds[0].position = transform(position);
                 currentState = GameState.Firing;
-                buildCurve(birdPosition);
+                buildCurve(birds[0].position);
             }
         }
 
         public void moveBird(Point toPosition)
         {
-            if (currentState != GameState.Flying)
+            if (currentState != GameState.Flying && birds.Length > 0)
             {
-                birdPosition = transform(toPosition);
-                buildCurve(birdPosition);
+                birds[0].position = transform(toPosition);
+                buildCurve(birds[0].position);
             }
         }
 
         public void releaseBird(Point position)
         {
-            if (currentState != GameState.Flying)
+            if (currentState != GameState.Flying && birds.Length > 0)
             {
-                birdPosition = transform(position);
-                buildCurve(birdPosition);
+                birds[0].position = transform(position);
+                buildCurve(birds[0].position);
                 currentState = GameState.Flying;
             }
         }
@@ -277,16 +372,16 @@ namespace AngryBirdsStudie3
         {
             double x1 = birdPosition.X, x2 = initialBirdPosition.X, y1 = birdPosition.Y, y2 = initialBirdPosition.Y;
             double m = (double)(y2 - y1) / (double)(x2 == x1 ? 1 : x2 - x1);
-            a = m / 2 / (x1 - (x2 - x1) * 5.0d);
+            a = Math.Abs(m / 2 / (x1 - (x2 - x1) * 5.0d));
             b = m - 2 * a * x1;
             c = y1 - a * Math.Pow(x1, 2) - b * x1;
 
             t0 = System.Environment.TickCount;
             x0 = x1;
 
-            System.Console.WriteLine(("y = " + a + " * x^2  + " + b + " * x + " + c).Replace(',', '.'));
+            //System.Console.WriteLine(("y = " + a + " * x^2  + " + b + " * x + " + c).Replace(',', '.'));
             //System.Console.WriteLine("y = " + b + " * (" + t0 + "- t) + " + x0);
-            System.Console.WriteLine("m = " + m);
+            //System.Console.WriteLine("m = " + m);
         }
 
         public void scroll(Vector2 moveTo)
@@ -296,7 +391,7 @@ namespace AngryBirdsStudie3
 
         public Point currentBirdPosition()
         {
-            return backTransform(this.birdPosition);
+            return birds.Length > 0 ? backTransform(birds[0].position) : new Point(Int32.MinValue, Int32.MinValue);
         }
 
         public void zoom(float zoomLevel, Point toPoint)
@@ -308,6 +403,15 @@ namespace AngryBirdsStudie3
 
         public void action()
         {
+            if (currentState == GameState.Flying && birds.Length>0)
+            {
+                if (birds[0].type == Bird.BirdType.Yellow)
+                {
+                    a = 0;
+                    b = 1;
+                    c = birds[0].position.Y - 1 * birds[0].position.X;
+                }
+            }
         }
 
         public void updatePointer(Point point, PointerState pointerState)
