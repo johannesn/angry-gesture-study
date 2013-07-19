@@ -13,6 +13,7 @@ namespace Maussteuerung
         int scrollWheelValue = 0;
         float zoomLevel = 1.0f;
         Point lastMousePosition;
+        int lastMouseClickTime;
 
         enum InterfaceState { Scrolling, Firing, Idle };
         InterfaceState state = InterfaceState.Idle;
@@ -54,6 +55,7 @@ namespace Maussteuerung
                     {
                         state = InterfaceState.Scrolling;
                     }
+                    lastMouseClickTime = Environment.TickCount;
                 }
 
             }
@@ -62,6 +64,10 @@ namespace Maussteuerung
                 if (state == InterfaceState.Firing)
                 {
                     GameInterface.releaseBird(new Point(mouseState.X, mouseState.Y));
+                }
+                else if(state != InterfaceState.Firing && Environment.TickCount - lastMouseClickTime < 500)
+                {
+                    GameInterface.action();
                 }
                 else if (state == InterfaceState.Scrolling)
                 {
