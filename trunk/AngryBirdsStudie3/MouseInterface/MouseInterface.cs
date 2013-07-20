@@ -32,7 +32,11 @@ namespace Maussteuerung
 
         public void updateMouseState(MouseState mouseState)
         {
-            GameInterface.updatePointer(new Point(mouseState.X, mouseState.Y), mouseState.LeftButton == ButtonState.Pressed ? PointerState.PointerClosed : PointerState.PointerOpen);
+            Pointer pointer = new Pointer();
+            pointer.point = new Point(mouseState.X, mouseState.Y);
+            pointer.type = Pointer.PointerType.HandRight;
+            pointer.state = mouseState.LeftButton == ButtonState.Pressed ? Pointer.PointerState.PointerClosed : Pointer.PointerState.PointerOpen;
+            GameInterface.updatePointer(new Pointer[]{pointer});
 
             if (scrollWheelValue != mouseState.ScrollWheelValue)
             {

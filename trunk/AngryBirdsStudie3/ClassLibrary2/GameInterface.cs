@@ -6,9 +6,16 @@ using Microsoft.Xna.Framework;
 
 namespace Interfaces
 {
-    public enum PointerState { PointerClosed, PointerOpen };
-
     public enum GameState { GameStart, Firing, BirdFlying, BirdFlyingActivated };
+
+    public struct Pointer
+    {
+        public enum PointerState { PointerClosed, PointerOpen };
+        public enum PointerType { HandLeft, HandRight };
+        public Point point;
+        public PointerType type;
+        public PointerState state;
+    }
 
     public interface GameInterface
     {
@@ -26,6 +33,6 @@ namespace Interfaces
 
         void action();
 
-        void updatePointer(Point point, PointerState pointerState);
+        void updatePointer(Pointer[] pointer);
     }
 }

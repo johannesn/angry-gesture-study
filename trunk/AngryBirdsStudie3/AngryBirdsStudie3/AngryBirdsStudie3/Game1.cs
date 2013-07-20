@@ -60,13 +60,12 @@ namespace AngryBirdsStudie3
         Point rechterPfosten = new Point(180, 780);
         int groundLine = 880;
         enum InterfaceType { InterfaceGesture, InterfaceMouse };
-        InterfaceType interfaceType = InterfaceType.InterfaceMouse;
+        InterfaceType interfaceType = InterfaceType.InterfaceGesture;
         GestenInterface gameInterface;
         MouseInterface mouseInterface;
 
         // Pointer parameter
-        Point pointerPosition;
-        PointerState pointerState;
+        Pointer[] pointer;
 
         // Zooming/Scrolling parameter
         Point cameraPoint = new Point(0, 0);
@@ -147,6 +146,8 @@ namespace AngryBirdsStudie3
 
         private void initialize()
         {
+            pointer = new Pointer[0];
+
             birds = new Bird[5];
             for (int i = 0; i < birds.Length; i++)
             {
@@ -295,7 +296,15 @@ namespace AngryBirdsStudie3
 
             spriteBatch.Begin();
             // Draw Pointer
-            spriteBatch.Draw(pointerState == PointerState.PointerOpen ? handOpen : handClosed, new Rectangle(pointerPosition.X - 50, pointerPosition.Y - 50, 100, 100), Color.White);
+            foreach (Pointer p in this.pointer)
+            {
+                //Rectangle rectangle = pointerTypes[i]==PointerType.HandRight?new Rectangle(pointerPositions[i].X - 50, pointerPositions[i].Y - 50, 100, 100)
+                //    : new Rectangle(pointerPositions[i].X - 50, pointerPositions[i].Y + 50, -100, 100);
+                //spriteBatch.Draw(pointerStates[i] == PointerState.PointerOpen ? handOpen : handClosed, rectangle, Color.White);
+                spriteBatch.Draw(p.state == Pointer.PointerState.PointerOpen ? handOpen : handClosed, new Rectangle(p.point.X - 50, p.point.Y - 50, 100, 100), 
+                    null, Color.White, 0.0f, new Vector2(0, 0), p.type == Pointer.PointerType.HandLeft?SpriteEffects.FlipHorizontally:0, 0);
+
+            }
             if (currentState == GameState.GameOver)
             {
                 int score = 0;
@@ -403,7 +412,7 @@ namespace AngryBirdsStudie3
 
         public void action()
         {
-            if (currentState == GameState.Flying && birds.Length>0)
+            if (currentState == GameState.Flying && birds.Length > 0)
             {
                 if (birds[0].type == Bird.BirdType.Yellow)
                 {
@@ -414,10 +423,9 @@ namespace AngryBirdsStudie3
             }
         }
 
-        public void updatePointer(Point point, PointerState pointerState)
+        public void updatePointer(Pointer[] pointer)
         {
-            pointerPosition = point;
-            this.pointerState = pointerState;
+            this.pointer = pointer;
         }
 
         public Point backTransform(Point toTransform)
