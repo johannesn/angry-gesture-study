@@ -71,7 +71,7 @@ namespace Gestenerkennung
 
             kinect.DepthFrameReady += SensorOnDepthFrameReady;
             kinect.SkeletonFrameReady += SensorOnSkeletonFrameReady;
-            
+
             kinect.Start(); // Start Kinect sensor
         }
 
@@ -114,7 +114,7 @@ namespace Gestenerkennung
                 }
             }
         }
-
+        
         private void InteractionStreamOnInteractionFrameReady(object sender, InteractionFrameReadyEventArgs args)
         {
             using (var iaf = args.OpenInteractionFrame()) //dispose as soon as possible
@@ -137,12 +137,24 @@ namespace Gestenerkennung
                     List<Pointer> pointer = new List<Pointer>();
                     foreach (var hand in hands)
                     {
+                        var lastHandEvents = hand.HandType == InteractionHandType.Left
+                                                 ? _lastLeftHandEvents
+                                                 : _lastRightHandEvents;
+
                         if (hand.IsTracked && !hand.HandType.Equals(InteractionHandType.None))
                         {
+                            if (hand.HandEventType != InteractionHandEventType.None)
+                            lastHandEvents[userID] = hand.HandEventType;
+
+                            var lastHandEvent = lastHandEvents.ContainsKey(userID)
+                                                ? lastHandEvents[userID]
+                                                : InteractionHandEventType.None;
+
                             Pointer p = new Pointer();
-                            p.point = new Point((int)(hand.X*1920), (int)(hand.Y*1080));
+                            p.point = hand.HandType.Equals(InteractionHandType.Left) ? new Point((int)(hand.X * 1920.0d / 2.0d), (int)(hand.Y * 1080.0d / 2.0d)) 
+                                : new Point((int)(hand.X * 1920.0d / 2.0d) + 1920 / 2, (int)(hand.Y * 1080.0d / 2.0d));
                             p.type = hand.HandType.Equals(InteractionHandType.Left) ? Pointer.PointerType.HandLeft : Pointer.PointerType.HandRight;
-                            p.state = hand.IsPressed || hand.HandEventType.Equals(InteractionHandEventType.Grip) ? Pointer.PointerState.PointerClosed: Pointer.PointerState.PointerOpen;
+                            p.state = hand.IsPressed || hand.HandEventType.Equals(InteractionHandEventType.Grip) || lastHandEvent.Equals(InteractionHandEventType.Grip) ? Pointer.PointerState.PointerClosed : Pointer.PointerState.PointerOpen;
                             pointer.Add(p);
                         }
                     }
