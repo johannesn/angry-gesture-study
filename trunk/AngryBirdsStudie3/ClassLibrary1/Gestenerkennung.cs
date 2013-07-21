@@ -205,6 +205,7 @@ namespace Gestenerkennung
                                         && Math.Abs(GameInterface.currentBirdPosition().Y - pointer[activeHand].point.Y) <= 50)
                                     {
                                         GameInterface.grabBird(pointer[activeHand].point);
+                                        interfaceState = InterfaceState.Firing;
                                     }
                                     else
                                     {
@@ -243,7 +244,7 @@ namespace Gestenerkennung
                                 else
                                 {
                                     interfaceState = InterfaceState.Idle;
-                                    activityTime = System.Environment.TickCount;
+                                    activityTime = System.Environment.TickCount - activityTime;
 
                                     if (activityTime >= 100 && activityTime <= 1000)
                                     {
