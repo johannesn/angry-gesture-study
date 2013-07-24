@@ -41,7 +41,7 @@ namespace Maussteuerung
             if (scrollWheelValue != mouseState.ScrollWheelValue)
             {
                 zoomLevel = Math.Max(Math.Min(2.0f, (float)(mouseState.ScrollWheelValue - scrollWheelValue) / 120.0f * 0.1f + zoomLevel), 1.0f);
-                GameInterface.zoom(zoomLevel, new Point(mouseState.X, mouseState.Y));
+                GameInterface.zoom(zoomLevel, new Vector2(0,0));
                 scrollWheelValue = mouseState.ScrollWheelValue;
             }
 
@@ -49,8 +49,8 @@ namespace Maussteuerung
             {
                 if (mouseState.LeftButton.Equals(ButtonState.Pressed))
                 {
-                    if (Math.Abs(GameInterface.currentBirdPosition().X - mouseState.X) <= 50 &&
-                        Math.Abs(GameInterface.currentBirdPosition().Y - mouseState.Y) <= 50)
+                    if (Math.Abs(GameInterface.currentBirdPosition().X - mouseState.X) <= 50 * zoomLevel &&
+                        Math.Abs(GameInterface.currentBirdPosition().Y - mouseState.Y) <= 50 * zoomLevel)
                     {
                         GameInterface.grabBird(new Point(mouseState.X, mouseState.Y));
                         state = InterfaceState.Firing;

@@ -69,6 +69,7 @@ namespace AngryBirdsStudie3
 
         // Zooming/Scrolling parameter
         Point cameraPoint = new Point(0, 0);
+        Point firingPoint;
         float zoomLevel = 1.0f;
         public Matrix TransformMatrix
         {
@@ -213,6 +214,8 @@ namespace AngryBirdsStudie3
                 }
 
                 birds[0].position = new Point((int)x, (int)y);
+                cameraPoint.X = (int)(1920 / 2 * zoomLevel - birds[0].position.X * zoomLevel);
+                cameraPoint.Y = (int)(1080 / 2 * zoomLevel - birds[0].position.Y * zoomLevel);
 
                 for (int i = 0; i < pigs.Length; i++)
                 {
@@ -231,6 +234,7 @@ namespace AngryBirdsStudie3
                         Array.Copy(birds, 1, tmp, 0, birds.Length - 1);
                         birds = tmp;
                         birds[0].position = initialBirdPosition;
+                        cameraPoint = firingPoint;
                     }
                     else
                     {
@@ -301,8 +305,8 @@ namespace AngryBirdsStudie3
                 //Rectangle rectangle = pointerTypes[i]==PointerType.HandRight?new Rectangle(pointerPositions[i].X - 50, pointerPositions[i].Y - 50, 100, 100)
                 //    : new Rectangle(pointerPositions[i].X - 50, pointerPositions[i].Y + 50, -100, 100);
                 //spriteBatch.Draw(pointerStates[i] == PointerState.PointerOpen ? handOpen : handClosed, rectangle, Color.White);
-                spriteBatch.Draw(p.state == Pointer.PointerState.PointerOpen ? handOpen : handClosed, new Rectangle(p.point.X - 50, p.point.Y - 50, 100, 100), 
-                    null, Color.White, 0.0f, new Vector2(0, 0), p.type == Pointer.PointerType.HandLeft?SpriteEffects.FlipHorizontally:0, 0);
+                spriteBatch.Draw(p.state == Pointer.PointerState.PointerOpen ? handOpen : handClosed, new Rectangle(p.point.X - 50, p.point.Y - 50, 100, 100),
+                    null, Color.White, 0.0f, new Vector2(0, 0), p.type == Pointer.PointerType.HandLeft ? SpriteEffects.FlipHorizontally : 0, 0);
 
             }
             if (currentState == GameState.GameOver)
@@ -373,6 +377,7 @@ namespace AngryBirdsStudie3
             {
                 birds[0].position = transform(position);
                 buildCurve(birds[0].position);
+                firingPoint = cameraPoint;
                 currentState = GameState.Flying;
             }
         }
@@ -403,10 +408,9 @@ namespace AngryBirdsStudie3
             return birds.Length > 0 ? backTransform(birds[0].position) : new Point(Int32.MinValue, Int32.MinValue);
         }
 
-        public void zoom(float zoomLevel, Point toPoint)
+        public void zoom(float zoomLevel, Vector2 moveTo)
         {
-            Point backTransformedCenter = backTransform(new Point(mainFrame.Width / 2, mainFrame.Height / 2));
-            cameraPoint = backTransform(new Point(toPoint.X - backTransformedCenter.X, toPoint.Y - backTransformedCenter.Y));
+            scroll(moveTo / zoomLevel);
             this.zoomLevel = zoomLevel;
         }
 

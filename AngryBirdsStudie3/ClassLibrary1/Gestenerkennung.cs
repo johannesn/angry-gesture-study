@@ -201,8 +201,8 @@ namespace Gestenerkennung
                                 {
                                     activeHand = getClosedPointer(pointer);
 
-                                    if (Math.Abs(GameInterface.currentBirdPosition().X - pointer[activeHand].point.X) <= 50
-                                        && Math.Abs(GameInterface.currentBirdPosition().Y - pointer[activeHand].point.Y) <= 50)
+                                    if (Math.Abs(GameInterface.currentBirdPosition().X - pointer[activeHand].point.X) <= 50 * zoomLevel
+                                        && Math.Abs(GameInterface.currentBirdPosition().Y - pointer[activeHand].point.Y) <= 50 * zoomLevel)
                                     {
                                         GameInterface.grabBird(pointer[activeHand].point);
                                         interfaceState = InterfaceState.Firing;
@@ -269,8 +269,7 @@ namespace Gestenerkennung
 
                                     zoomLevel = (float)Math.Max(Math.Min((leftToRightHand.Length() - oldLeftToRightHand.Length()) / 2000.0f + zoomLevel, 2.0f), 1.0f);
 
-                                    GameInterface.zoom(zoomLevel, new Point(1920/2, 1080/2));
-                                        //new Point(pointer[Pointer.PointerType.HandLeft].point.X + (int)leftToRightHand.X / 2, pointer[Pointer.PointerType.HandLeft].point.Y + (int)leftToRightHand.Y / 2));
+                                    GameInterface.zoom(zoomLevel, leftToRightHand / 2 - oldLeftToRightHand / 2);
 
                                     scrollingAnchor[Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
                                     scrollingAnchor[Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
