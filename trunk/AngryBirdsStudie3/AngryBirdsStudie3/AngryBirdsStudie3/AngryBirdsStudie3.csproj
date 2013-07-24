@@ -115,6 +115,8 @@
   <ItemGroup>
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
+    <Content Include="KinectInteraction170_32.dll" />
+    <Content Include="KinectInteraction170_64.dll" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\ClassLibrary1\Gestenerkennung.csproj">
