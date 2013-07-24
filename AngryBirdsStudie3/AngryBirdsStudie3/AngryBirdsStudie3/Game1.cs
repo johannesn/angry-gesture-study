@@ -94,7 +94,7 @@ namespace AngryBirdsStudie3
             Content.RootDirectory = "Content";
             this.graphics.PreferredBackBufferWidth = 1920;
             this.graphics.PreferredBackBufferHeight = 1080;
-            //graphics.IsFullScreen = true;
+            graphics.IsFullScreen = true;
 
             if (interfaceType == InterfaceType.InterfaceMouse)
             {
