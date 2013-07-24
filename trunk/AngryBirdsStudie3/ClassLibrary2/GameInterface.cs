@@ -29,7 +29,7 @@ namespace Interfaces
 
         void scroll(Vector2 moveTo);
 
-        void zoom(float zoomLevel, Point toPoint);
+        void zoom(float zoomLevel, Vector2 moveTo);
 
         void action();
 
