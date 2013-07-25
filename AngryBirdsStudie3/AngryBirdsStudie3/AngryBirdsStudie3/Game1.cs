@@ -47,7 +47,7 @@ namespace AngryBirdsStudie3
         Bird[] birds;
         Pig[] pigs;
         Texture2D gummi;
-        Texture2D handOpen;
+        Dictionary<int, Texture2D> handOpen;
         Texture2D handClosed;
         Texture2D gameOver;
         SpriteFont font;
@@ -95,7 +95,7 @@ namespace AngryBirdsStudie3
             Content.RootDirectory = "Content";
             this.graphics.PreferredBackBufferWidth = 1920;
             this.graphics.PreferredBackBufferHeight = 1080;
-            graphics.IsFullScreen = true;
+            //graphics.IsFullScreen = true;
 
             if (interfaceType == InterfaceType.InterfaceMouse)
             {
@@ -134,7 +134,26 @@ namespace AngryBirdsStudie3
             // Load the background content.
             background = Content.Load<Texture2D>("background");
             flitsche = Content.Load<Texture2D>("flitsche");
-            handOpen = Content.Load<Texture2D>("hand_open");
+            handOpen = new Dictionary<int, Texture2D>();
+            handOpen[0] = Content.Load<Texture2D>("hand_open0");
+            int width = handOpen[0].Width;
+            int height = handOpen[0].Height;
+            for (int i = 1; i <= 10; i++)
+            {
+                handOpen[i] = Content.Load<Texture2D>("hand_open"+i);
+                Color[] data = new Color[width * height];
+                handOpen[i].GetData(data);
+
+                for (int j = width * height - width * height * i / 10; j < data.Length; j++)
+                {
+                    if (data[j] == Color.White)
+                    {
+                        data[j] = Color.Blue;
+                    }
+                }
+
+                handOpen[i].SetData(data);
+            }
             handClosed = Content.Load<Texture2D>("hand_closed");
             gameOver = Content.Load<Texture2D>("gameOverWindow");
             font = Content.Load<SpriteFont>("spriteFont1");
@@ -300,15 +319,13 @@ namespace AngryBirdsStudie3
 
             spriteBatch.Begin();
             // Draw Pointer
-            foreach (Pointer p in this.pointer)
+            Dictionary<Pointer.PointerType, Color[]> data = new Dictionary<Pointer.PointerType, Color[]>();
+            foreach (Pointer p in pointer)
             {
-                //Rectangle rectangle = pointerTypes[i]==PointerType.HandRight?new Rectangle(pointerPositions[i].X - 50, pointerPositions[i].Y - 50, 100, 100)
-                //    : new Rectangle(pointerPositions[i].X - 50, pointerPositions[i].Y + 50, -100, 100);
-                //spriteBatch.Draw(pointerStates[i] == PointerState.PointerOpen ? handOpen : handClosed, rectangle, Color.White);
-                spriteBatch.Draw(p.state == Pointer.PointerState.PointerOpen ? handOpen : handClosed, new Rectangle(p.point.X - 50, p.point.Y - 50, 100, 100),
+                spriteBatch.Draw(p.state == Pointer.PointerState.PointerClosed ? handClosed : handOpen[(int)Math.Round(p.pressExtend * 10.0d)], new Rectangle(p.point.X - 50, p.point.Y - 50, 100, 100),
                     null, Color.White, 0.0f, new Vector2(0, 0), p.type == Pointer.PointerType.HandLeft ? SpriteEffects.FlipHorizontally : 0, 0);
-
             }
+
             if (currentState == GameState.GameOver)
             {
                 int score = 0;
