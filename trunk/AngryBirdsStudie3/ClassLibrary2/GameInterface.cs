@@ -10,11 +10,12 @@ namespace Interfaces
 
     public struct Pointer
     {
-        public enum PointerState { PointerClosed, PointerOpen };
+        public enum PointerState { PointerClosed, PointerOpen, PointerPress };
         public enum PointerType { HandLeft, HandRight };
         public Point point;
         public PointerType type;
         public PointerState state;
+        public double pressExtend;
     }
 
     public interface GameInterface

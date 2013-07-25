@@ -43,6 +43,9 @@ namespace Gestenerkennung
         private int activityTime;
         private float zoomLevel = 1.0f;
         private Dictionary<Pointer.PointerType, Point> scrollingAnchor;
+        private Dictionary<Pointer.PointerType, double> backMovement;
+        private Dictionary<Pointer.PointerType, bool> pressed;
+        private Dictionary<Pointer.PointerType, Vector3> previousHandPosition;
 
         public GameInterface GameInterface
         {
@@ -54,6 +57,12 @@ namespace Gestenerkennung
         {
             GameInterface = gameInterface;
             scrollingAnchor = new Dictionary<Pointer.PointerType, Point>();
+            pressed = new Dictionary<Pointer.PointerType, bool>();
+            pressed[Pointer.PointerType.HandRight] = false;
+            pressed[Pointer.PointerType.HandLeft] = false;
+            backMovement = new Dictionary<Pointer.PointerType, double>();
+            previousHandPosition = new Dictionary<Pointer.PointerType, Vector3>();
+
 
             kinect = KinectSensor.KinectSensors.FirstOrDefault();
             if (kinect == null)
@@ -149,7 +158,7 @@ namespace Gestenerkennung
                                                  ? _lastLeftHandEvents
                                                  : _lastRightHandEvents;
 
-                        if (hand.IsTracked && !hand.HandType.Equals(InteractionHandType.None))
+                        if (hand.IsTracked && hand.IsActive && !hand.HandType.Equals(InteractionHandType.None))
                         {
                             if (hand.HandEventType != InteractionHandEventType.None)
                                 lastHandEvents[userID] = hand.HandEventType;
@@ -162,7 +171,43 @@ namespace Gestenerkennung
                             p.point = hand.HandType.Equals(InteractionHandType.Left) ? new Point((int)(hand.X * 1920.0d / 2.0d), (int)(hand.Y * 1080.0d))
                                 : new Point((int)(hand.X * 1920.0d / 2.0d) + 1920 / 2, (int)(hand.Y * 1080.0d));
                             p.type = hand.HandType.Equals(InteractionHandType.Left) ? Pointer.PointerType.HandLeft : Pointer.PointerType.HandRight;
-                            p.state = hand.IsPressed || hand.HandEventType.Equals(InteractionHandEventType.Grip) || lastHandEvent.Equals(InteractionHandEventType.Grip) ? Pointer.PointerState.PointerClosed : Pointer.PointerState.PointerOpen;
+
+                            if (hand.IsPressed)
+                            {
+                                pressed[p.type] = true;
+                                previousHandPosition[p.type] = new Vector3((float)hand.RawX, (float)hand.RawY, (float)hand.RawZ);
+                                backMovement[p.type] = 0;
+                            }
+                            else if (pressed[p.type] && previousHandPosition.ContainsKey(p.type))
+                            {
+                                Vector3 oldPosition = previousHandPosition[p.type];
+                                Vector3 newPosition = new Vector3((float)hand.RawX, (float)hand.RawY, (float)hand.RawZ);
+                                Vector3 movement = newPosition - oldPosition;
+                                double moveZ = movement.Z;
+                                //System.Console.Write(movement);
+                                movement.Normalize();
+                                double angle = Math.Acos(movement.Z);
+                                if ((angle <= Math.PI / 4.0d || angle >= 3.0d * Math.PI / 4.0d) && moveZ < 0)
+                                {
+                                    backMovement[p.type] += moveZ;
+                                    if (backMovement[p.type] <= 0.2d)
+                                    {
+                                        pressed[p.type] = false;
+                                        previousHandPosition.Remove(p.type);
+                                    }
+                                }
+                                else
+                                {
+                                    backMovement[p.type] = 0.0d;
+                                }
+                                //System.Console.WriteLine();
+                            }
+
+                            p.pressExtend = pressed[p.type] ? 1.0d : Math.Max(Math.Min(hand.PressExtent, 1.0d), 0.0d);
+
+                            p.state = hand.HandEventType.Equals(InteractionHandEventType.Grip) || lastHandEvent.Equals(InteractionHandEventType.Grip) ? Pointer.PointerState.PointerClosed
+                                : pressed[p.type] ? Pointer.PointerState.PointerPress : Pointer.PointerState.PointerOpen;
+
                             pointer.Add(p.type, p);
 
                             if (p.type == Pointer.PointerType.HandLeft)
@@ -201,8 +246,8 @@ namespace Gestenerkennung
                                 {
                                     activeHand = getClosedPointer(pointer);
 
-                                    if (Math.Abs(GameInterface.currentBirdPosition().X - pointer[activeHand].point.X) <= 50 * zoomLevel
-                                        && Math.Abs(GameInterface.currentBirdPosition().Y - pointer[activeHand].point.Y) <= 50 * zoomLevel)
+                                    if (Math.Abs(GameInterface.currentBirdPosition().X - pointer[activeHand].point.X) <= 150 * zoomLevel
+                                        && Math.Abs(GameInterface.currentBirdPosition().Y - pointer[activeHand].point.Y) <= 150 * zoomLevel)
                                     {
                                         GameInterface.grabBird(pointer[activeHand].point);
                                         interfaceState = InterfaceState.Firing;
@@ -288,11 +333,11 @@ namespace Gestenerkennung
         private static Pointer.PointerType getClosedPointer(Dictionary<Pointer.PointerType, Pointer> pointer)
         {
             Pointer.PointerType closedHand = Pointer.PointerType.HandLeft;
-            if (pointer.Keys.Contains(Pointer.PointerType.HandLeft) && pointer[Pointer.PointerType.HandLeft].state == Pointer.PointerState.PointerClosed)
+            if (pointer.Keys.Contains(Pointer.PointerType.HandLeft) && pointer[Pointer.PointerType.HandLeft].state != Pointer.PointerState.PointerOpen)
             {
                 closedHand = Pointer.PointerType.HandLeft;
             }
-            else if (pointer.Keys.Contains(Pointer.PointerType.HandRight) && pointer[Pointer.PointerType.HandRight].state == Pointer.PointerState.PointerClosed)
+            else if (pointer.Keys.Contains(Pointer.PointerType.HandRight) && pointer[Pointer.PointerType.HandRight].state != Pointer.PointerState.PointerOpen)
             {
                 closedHand = Pointer.PointerType.HandRight;
             }
@@ -303,7 +348,7 @@ namespace Gestenerkennung
         {
             if (pointer.Keys.Contains(Pointer.PointerType.HandLeft) && pointer.Keys.Contains(Pointer.PointerType.HandRight))
             {
-                return pointer[Pointer.PointerType.HandLeft].state == Pointer.PointerState.PointerClosed && pointer[Pointer.PointerType.HandLeft].state == Pointer.PointerState.PointerClosed;
+                return pointer[Pointer.PointerType.HandLeft].state != Pointer.PointerState.PointerOpen && pointer[Pointer.PointerType.HandLeft].state != Pointer.PointerState.PointerOpen;
             }
             else
             {
@@ -315,15 +360,15 @@ namespace Gestenerkennung
         {
             if (pointer.Keys.Contains(Pointer.PointerType.HandLeft) && pointer.Keys.Contains(Pointer.PointerType.HandRight))
             {
-                return pointer[Pointer.PointerType.HandLeft].state == Pointer.PointerState.PointerClosed ^ pointer[Pointer.PointerType.HandRight].state == Pointer.PointerState.PointerClosed;
+                return pointer[Pointer.PointerType.HandLeft].state != Pointer.PointerState.PointerOpen ^ pointer[Pointer.PointerType.HandRight].state != Pointer.PointerState.PointerOpen;
             }
             else if (pointer.Keys.Contains(Pointer.PointerType.HandLeft))
             {
-                return pointer[Pointer.PointerType.HandLeft].state == Pointer.PointerState.PointerClosed;
+                return pointer[Pointer.PointerType.HandLeft].state != Pointer.PointerState.PointerOpen;
             }
             else if (pointer.Keys.Contains(Pointer.PointerType.HandRight))
             {
-                return pointer[Pointer.PointerType.HandRight].state == Pointer.PointerState.PointerClosed;
+                return pointer[Pointer.PointerType.HandRight].state != Pointer.PointerState.PointerOpen;
             }
             else
             {
