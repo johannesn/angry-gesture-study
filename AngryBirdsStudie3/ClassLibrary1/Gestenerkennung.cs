@@ -149,11 +149,11 @@ namespace Gestenerkennung
                 {
                     playerOrder.Dequeue();
                     ResetForNewUser();
-                }
 
-                if (playerOrder.Count <= 0)
-                {
-                    GameInterface.PlayerLeft();
+                    if (playerOrder.Count <= 0)
+                    {
+                        GameInterface.PlayerLeft();
+                    }
                 }
 
                 // Iterate until current player found, add those that are not in the queue to the queue
@@ -170,6 +170,7 @@ namespace Gestenerkennung
                             GameInterface.PlayerEntered();
                         }
                         playerOrder.Enqueue(userID);
+                        System.Console.WriteLine(userID + " entered");
                     }
 
                     if (playerOrder.Count > 0 && userID == playerOrder.Peek())
@@ -486,6 +487,22 @@ namespace Gestenerkennung
                 }
             }
 
+            lock (playerOrder)
+            {
+                foreach (Skeleton skeleton in skeletonData)
+                {
+                    if (skeleton.TrackingId != 0 && !playerOrder.Contains(skeleton.TrackingId))
+                    {
+                        if (playerOrder.Count <= 0)
+                        {
+                            GameInterface.PlayerEntered();
+                        }
+                        playerOrder.Enqueue(skeleton.TrackingId);
+                    }
+                }
+            }
+
+            //Dictionary<int, bool> output = new Dictionary<int,bool>();
             Color[] data = new Color[kinect.DepthStream.FramePixelDataLength];
             // do our processing outside of the using block
             // so that we return resources to the kinect as soon as possible
@@ -496,54 +513,55 @@ namespace Gestenerkennung
                     this.depthPixels,
                     ColorFormat,
                     this.colorCoordinates);
-                lock (playerOrder)
+
+                // loop over each row and column of the depth
+                for (int y = 0; y < this.depthHeight; ++y)
                 {
-
-                    // loop over each row and column of the depth
-                    for (int y = 0; y < this.depthHeight; ++y)
+                    for (int x = 0; x < this.depthWidth; ++x)
                     {
-                        for (int x = 0; x < this.depthWidth; ++x)
+                        // calculate index into depth array
+                        int depthIndex = x + (y * this.depthWidth);
+
+                        DepthImagePixel depthPixel = this.depthPixels[depthIndex];
+
+                        int player = depthPixel.PlayerIndex;
+
+                        // players skeleton id
+                        int skeletonID = (player - 1 >= 0 && player - 1 < skeletonData.Length) ? skeletonData[player - 1].TrackingId : -1;
+
+                        // retrieve the depth to color mapping for the current depth pixel
+                        ColorImagePoint colorImagePoint = this.colorCoordinates[depthIndex];
+
+                        // scale color coordinates to depth resolution
+                        int colorInDepthX = colorImagePoint.X / this.colorToDepthDivisor;
+                        int colorInDepthY = colorImagePoint.Y / this.colorToDepthDivisor;
+
+                        // make sure the depth pixel maps to a valid point in color space
+                        // check y > 0 and y < depthHeight to make sure we don't write outside of the array
+                        // check x > 0 instead of >= 0 since to fill gaps we set opaque current pixel plus the one to the left
+                        // because of how the sensor works it is more correct to do it this way than to set to the right
+                        if (colorInDepthX > 0 && colorInDepthX < this.depthWidth && colorInDepthY >= 0 && colorInDepthY < this.depthHeight)
                         {
-                            // calculate index into depth array
-                            int depthIndex = x + (y * this.depthWidth);
 
-                            DepthImagePixel depthPixel = this.depthPixels[depthIndex];
-
-                            int player = depthPixel.PlayerIndex;
-
-                            // players skeleton id
-                            int skeletonID = player - 1 > 0 && player - 1 < skeletonData.Length ? skeletonData[player - 1].TrackingId : -1;
-
-                            // retrieve the depth to color mapping for the current depth pixel
-                            ColorImagePoint colorImagePoint = this.colorCoordinates[depthIndex];
-
-                            // scale color coordinates to depth resolution
-                            int colorInDepthX = colorImagePoint.X / this.colorToDepthDivisor;
-                            int colorInDepthY = colorImagePoint.Y / this.colorToDepthDivisor;
-
-                            // make sure the depth pixel maps to a valid point in color space
-                            // check y > 0 and y < depthHeight to make sure we don't write outside of the array
-                            // check x > 0 instead of >= 0 since to fill gaps we set opaque current pixel plus the one to the left
-                            // because of how the sensor works it is more correct to do it this way than to set to the right
-                            if (colorInDepthX > 0 && colorInDepthX < this.depthWidth && colorInDepthY >= 0 && colorInDepthY < this.depthHeight)
+                            // calculate index into the green screen pixel array
+                            int greenScreenIndex = colorInDepthX + (colorInDepthY * this.depthWidth);
+                            // if we're tracking a player for the current pixel, do green screen
+                            if (player > 0)
                             {
-
-                                // calculate index into the green screen pixel array
-                                int greenScreenIndex = colorInDepthX + (colorInDepthY * this.depthWidth);
-                                // if we're tracking a player for the current pixel, do green screen
-                                if (player > 0)
-                                {
-                                    int alpha = playerOrder.Count > 0 && skeletonID == playerOrder.Peek() ? 255 : 125;
-                                    data[greenScreenIndex] = new Color(colorPixels[greenScreenIndex * 4 + 2], colorPixels[greenScreenIndex * 4 + 1], colorPixels[greenScreenIndex * 4], alpha);
-                                    data[greenScreenIndex - 1] = new Color(colorPixels[(greenScreenIndex - 1) * 4 + 2], colorPixels[(greenScreenIndex - 1) * 4 + 1], colorPixels[(greenScreenIndex - 1) * 4], alpha);
-                                }
-                                else
-                                {
-                                    data[greenScreenIndex] = Color.Transparent;
-                                }
+                                int alpha = playerOrder.Count <= 0 || skeletonID == playerOrder.Peek() ? 255 : 125;
+                                //if (!output.ContainsKey(skeletonID))
+                                //{
+                                //    output[skeletonID] = true;
+                                //    System.Console.WriteLine(skeletonID + " found in image, first player is " + (playerOrder.Count > 0 ? "" + playerOrder.Peek() : "not there"));
+                                //}
+                                data[greenScreenIndex] = new Color(colorPixels[greenScreenIndex * 4 + 2], colorPixels[greenScreenIndex * 4 + 1], colorPixels[greenScreenIndex * 4], alpha);
+                                data[greenScreenIndex - 1] = new Color(colorPixels[(greenScreenIndex - 1) * 4 + 2], colorPixels[(greenScreenIndex - 1) * 4 + 1], colorPixels[(greenScreenIndex - 1) * 4], alpha);
+                            }
+                            else
+                            {
+                                data[greenScreenIndex] = Color.Transparent;
                             }
                         }
-
                     }
 
                     GameInterface.setPlayer_background(data);
