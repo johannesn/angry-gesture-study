@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Interfaces
 {
@@ -35,5 +36,15 @@ namespace Interfaces
         void action();
 
         void updatePointer(Pointer[] pointer);
+
+        void ResetForNewUser();
+
+        Color[] getPlayer_background();
+
+        void setPlayer_background(Color[] background);
+
+        void PlayerLeft();
+
+        void PlayerEntered();
     }
 }
