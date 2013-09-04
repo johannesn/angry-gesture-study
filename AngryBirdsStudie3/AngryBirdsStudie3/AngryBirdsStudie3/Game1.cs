@@ -122,6 +122,13 @@ namespace AngryBirdsStudie3
             base.Initialize();
         }
 
+        protected override void OnExiting(object sender, EventArgs args)
+        {
+            base.OnExiting(sender, args);
+
+            gameInterface.stop();
+        }
+
         /// <summary>
         /// LoadContent will be called once per game and is the place to load
         /// all of your content.
@@ -209,7 +216,7 @@ namespace AngryBirdsStudie3
         }
 
         int landingTime = -1;
-
+        int highscoreTimeout = -1;
         /// <summary>
         /// Allows the game to run logic such as updating the world,
         /// checking for collisions, gathering input, and playing audio.
@@ -246,11 +253,11 @@ namespace AngryBirdsStudie3
 
                 if (birds[0].position.Y < groundLine)
                 {
-                    this.scroll(new Vector2(birds[0].position.X - (int) x,
-                                            birds[0].position.Y - (int) y));
+                    this.scroll(new Vector2(birds[0].position.X - (int)x,
+                                            birds[0].position.Y - (int)y));
                     birds[0].position = new Point((int)x, (int)y);
                 }
-                
+
                 for (int i = 0; i < pigs.Length; i++)
                 {
                     if (new Vector2(birds[0].position.X - pigs[i].position.X, birds[0].position.Y - pigs[i].position.Y).Length() < 40.0f)
@@ -259,13 +266,13 @@ namespace AngryBirdsStudie3
                     }
                 }
 
-                if (birds[0].position.Y >= groundLine && birds[0].position.X >= 135)
+                if (birds[0].position.Y >= groundLine && birds[0].position.X >= 135 || birds[0].position.X > mainFrame.Width)
                 {
-                    if (landingTime < 0)
+                    if (landingTime < 0 && birds[0].position.X < mainFrame.Width)
                     {
                         landingTime = System.Environment.TickCount;
                     }
-                    else if (System.Environment.TickCount - landingTime > 2000)
+                    else if (System.Environment.TickCount - landingTime > 2000 || birds[0].position.X > mainFrame.Width)
                     {
                         currentState = GameState.Idle;
                         landingTime = -1;
@@ -280,9 +287,19 @@ namespace AngryBirdsStudie3
                         else
                         {
                             currentState = GameState.GameOver;
+                            highscoreTimeout = System.Environment.TickCount;
                             birds = new Bird[0];
                         }
                     }
+                }
+            }
+
+            if (currentState == GameState.GameOver)
+            {
+                if ((System.Environment.TickCount - highscoreTimeout) > 3000)
+                {
+                    initialize();
+                    gameInterface.nextPlayer();
                 }
             }
 
@@ -369,7 +386,7 @@ namespace AngryBirdsStudie3
                         score++;
                     }
                 }
-                string message = String.Format("GAME OVER!!!{0}Du hast {1} Schweine erwischt!{0}Druecke Eingabe um ein{0}neues Spiel zu starten!", Environment.NewLine, score);
+                string message = String.Format("GAME OVER!!!{0}Du hast {1} Schweine erwischt!{0}Der naechste kann in {0}{2} Sekunden spielen!", Environment.NewLine, score, 3 - (System.Environment.TickCount - highscoreTimeout) / 1000);
                 Vector2 FontOrigin = font.MeasureString(message) / 2;
                 spriteBatch.Draw(gameOver, new Vector2(mainFrame.Width / 4, mainFrame.Height / 4), Color.White);
                 spriteBatch.DrawString(font, message, new Vector2(mainFrame.Width / 2, mainFrame.Height / 2), Color.White,
@@ -413,7 +430,7 @@ namespace AngryBirdsStudie3
         public void grabBird(Point position)
         {
             if (currentState != GameState.Flying && birds.Length > 0)
-            {   
+            {
                 birds[0].position = CalculatePossibleBirdPosition(position);
                 currentState = GameState.Firing;
                 buildCurve(birds[0].position);
@@ -458,8 +475,10 @@ namespace AngryBirdsStudie3
 
         public void scroll(Vector2 moveTo)
         {
+            System.Console.Write(cameraPoint.X + " " + cameraPoint.Y + " " + moveTo.X + " " + moveTo.Y + " ");
             cameraPoint = new Point(Math.Max(mainFrame.Width - (int)(mainFrame.Width * zoomLevel), Math.Min(0, cameraPoint.X + (int)(moveTo.X))),
                                     Math.Max(mainFrame.Height - (int)(mainFrame.Height * zoomLevel), Math.Min(0, cameraPoint.Y + (int)(moveTo.Y))));
+            System.Console.WriteLine(cameraPoint.X + " " + cameraPoint.Y);
         }
 
         public Point currentBirdPosition()
@@ -469,8 +488,8 @@ namespace AngryBirdsStudie3
 
         public void zoom(float zoomLevel, Vector2 moveTo)
         {
-            scroll(moveTo / zoomLevel);
             this.zoomLevel = zoomLevel;
+            scroll(-moveTo);
         }
 
         public void action()
@@ -519,6 +538,7 @@ namespace AngryBirdsStudie3
         //Set the sound effects to use
         SoundEffect soundEngine;
         SoundEffectInstance soundEngineInstance;
+        System.Threading.Timer timer;
 
         public void PlayerEntered()
         {
@@ -528,6 +548,8 @@ namespace AngryBirdsStudie3
                 soundEngineInstance.Volume = 1.0f;
                 soundEngineInstance.IsLooped = true;
                 soundEngineInstance.Play();
+
+                timer = new System.Threading.Timer(obj => { zoom(2.0f, new Vector2(0.0f, mainFrame.Height)); }, null, 1000, System.Threading.Timeout.Infinite);
             }
         }
 

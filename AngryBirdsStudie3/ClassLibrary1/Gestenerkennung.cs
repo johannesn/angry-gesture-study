@@ -568,5 +568,17 @@ namespace Gestenerkennung
                 }
             }
         }
+
+        public void stop()
+        {
+            kinect.Stop();
+            this.kinect = null;
+        }
+
+        public void nextPlayer()
+        {
+            int firstPlayer = playerOrder.Dequeue();
+            playerOrder.Enqueue(firstPlayer);
+        }
     }
 }
