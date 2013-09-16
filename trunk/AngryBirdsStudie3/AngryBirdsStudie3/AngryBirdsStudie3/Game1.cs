@@ -239,7 +239,12 @@ namespace AngryBirdsStudie3
                 initialize();
             }
 
-            texturePlayerBackground.SetData(player_background);
+            Color[] data = gameInterface.getPlayerBackground();
+            if (data != null)
+            {
+                setPlayer_background(data);
+                texturePlayerBackground.SetData(player_background);
+            }
 
             if (currentState == GameState.Flying)
             {
