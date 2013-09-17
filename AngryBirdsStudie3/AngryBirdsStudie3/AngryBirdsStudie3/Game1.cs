@@ -98,15 +98,6 @@ namespace AngryBirdsStudie3
             this.graphics.PreferredBackBufferWidth = 1920;
             this.graphics.PreferredBackBufferHeight = 1080;
             //graphics.IsFullScreen = true;
-
-            if (interfaceType == InterfaceType.InterfaceMouse)
-            {
-                mouseInterface = new MouseInterface(this);
-            }
-            else if (interfaceType == InterfaceType.InterfaceGesture)
-            {
-                gameInterface = new GestenInterface(this);
-            }
         }
 
         /// <summary>
@@ -139,6 +130,15 @@ namespace AngryBirdsStudie3
             spriteBatch = new SpriteBatch(GraphicsDevice);
             // Set the rectangle parameters.
             mainFrame = new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+            if (interfaceType == InterfaceType.InterfaceMouse)
+            {
+                mouseInterface = new MouseInterface(this);
+            }
+            else if (interfaceType == InterfaceType.InterfaceGesture)
+            {
+                gameInterface = new GestenInterface(this);
+            }
 
             // Load the background content.
             background = Content.Load<Texture2D>("background");
@@ -346,7 +346,8 @@ namespace AngryBirdsStudie3
                 }
             }
 
-            Vector2 vogelfassungPosition = birds.Length > 0 && birds[0].position.X < 160 ? new Vector2(birds[0].position.X + 25, birds[0].position.Y + 25) : new Vector2(initialBirdPosition.X + 25, initialBirdPosition.Y + 25);
+            Vector2 vogelfassungPosition = birds.Length > 0 && birds[0].position.X < 160 ? new Vector2(birds[0].position.X + 25, birds[0].position.Y + 25) 
+                                                                                         : new Vector2(initialBirdPosition.X + 25, initialBirdPosition.Y + 25);
             // Draw hinteres Gummi
             DrawLine(spriteBatch, new Vector2(rechterPfosten.X, rechterPfosten.Y), vogelfassungPosition, 5);
             // Draw Flitsche
@@ -427,8 +428,8 @@ namespace AngryBirdsStudie3
         private Point CalculatePossibleBirdPosition(Point position)
         {
             Point newPosition = transform(position);
-            newPosition.X = Math.Max(0, Math.Min(flitschePosition.X + 100, newPosition.X));
-            newPosition.Y = Math.Min(groundLine - 1, Math.Max(flitschePosition.Y, newPosition.Y));
+            newPosition.X = Math.Max(0, Math.Min(initialBirdPosition.X - 10, newPosition.X));
+            newPosition.Y = Math.Min(groundLine - 1, Math.Max(initialBirdPosition.Y, newPosition.Y));
             return newPosition;
         }
 
@@ -480,10 +481,10 @@ namespace AngryBirdsStudie3
 
         public void scroll(Vector2 moveTo)
         {
-            System.Console.Write(cameraPoint.X + " " + cameraPoint.Y + " " + moveTo.X + " " + moveTo.Y + " ");
+            //System.Console.Write(cameraPoint.X + " " + cameraPoint.Y + " " + moveTo.X + " " + moveTo.Y + " ");
             cameraPoint = new Point(Math.Max(mainFrame.Width - (int)(mainFrame.Width * zoomLevel), Math.Min(0, cameraPoint.X + (int)(moveTo.X))),
                                     Math.Max(mainFrame.Height - (int)(mainFrame.Height * zoomLevel), Math.Min(0, cameraPoint.Y + (int)(moveTo.Y))));
-            System.Console.WriteLine(cameraPoint.X + " " + cameraPoint.Y);
+            //System.Console.WriteLine(cameraPoint.X + " " + cameraPoint.Y);
         }
 
         public Point currentBirdPosition()
@@ -528,6 +529,8 @@ namespace AngryBirdsStudie3
         public void ResetForNewUser()
         {
             initialize();
+
+            //timer = new System.Threading.Timer(obj => { zoom(2.0f, new Vector2(0.0f, mainFrame.Height)); }, null, 1000, System.Threading.Timeout.Infinite);
         }
 
         public void setPlayer_background(Color[] background)
@@ -547,15 +550,18 @@ namespace AngryBirdsStudie3
 
         public void PlayerEntered()
         {
-            soundEngineInstance = soundEngine.CreateInstance();
+            if (soundEngineInstance == null)
+            {
+                soundEngineInstance = soundEngine.CreateInstance();
+            }
             if (soundEngineInstance.State == SoundState.Stopped)
             {
                 soundEngineInstance.Volume = 1.0f;
                 soundEngineInstance.IsLooped = true;
                 soundEngineInstance.Play();
-
-                timer = new System.Threading.Timer(obj => { zoom(2.0f, new Vector2(0.0f, mainFrame.Height)); }, null, 1000, System.Threading.Timeout.Infinite);
             }
+
+            timer = new System.Threading.Timer(obj => { zoom(2.0f, new Vector2(0.0f, mainFrame.Height)); }, null, 1000, System.Threading.Timeout.Infinite);
         }
 
         public void PlayerLeft()
@@ -564,6 +570,11 @@ namespace AngryBirdsStudie3
             {
                 soundEngineInstance.Stop();
             }
+        }
+
+        public Rectangle getDimensions()
+        {
+            return mainFrame;
         }
     }
 }

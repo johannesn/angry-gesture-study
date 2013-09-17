@@ -46,5 +46,7 @@ namespace Interfaces
         void PlayerLeft();
 
         void PlayerEntered();
+
+        Rectangle getDimensions();
     }
 }
