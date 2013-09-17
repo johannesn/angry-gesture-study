@@ -59,6 +59,7 @@ namespace Gestenerkennung
         private int colorToDepthDivisor;
         private int depthWidth;
         private int depthHeight;
+        private Rectangle mainFrame;
 
         public GameInterface GameInterface
         {
@@ -70,6 +71,8 @@ namespace Gestenerkennung
         {
             GameInterface = gameInterface;
             playerOrder = new Queue<int>();
+
+            mainFrame = gameInterface.getDimensions();
 
             initialize();
 
@@ -206,8 +209,8 @@ namespace Gestenerkennung
                     || pressed[pointerType] || gripped[pointerType])
                 {
                     Pointer p = new Pointer();
-                    p.point = hand.HandType.Equals(InteractionHandType.Left) ? new Point((int)(hand.X * 1920.0d / 2.0d), (int)(hand.Y * 1080.0d))
-                        : new Point((int)(hand.X * 1920.0d / 2.0d) + 1920 / 2, (int)(hand.Y * 1080.0d));
+                    p.point = hand.HandType.Equals(InteractionHandType.Left) ? new Point((int)(hand.X * mainFrame.Width / 2.0d), (int)(hand.Y * mainFrame.Height))
+                        : new Point((int)(hand.X * mainFrame.Width / 2.0d) + mainFrame.Width / 2, (int)(hand.Y * mainFrame.Height));
                     p.type = hand.HandType.Equals(InteractionHandType.Left) ? Pointer.PointerType.HandLeft : Pointer.PointerType.HandRight;
 
                     if (hand.IsPressed)
@@ -433,19 +436,14 @@ namespace Gestenerkennung
             {
                 return;
             }
-
-            bool depthReceived = false;
-            bool colorReceived = false;
-
+            
             using (DepthImageFrame depthFrame = e.OpenDepthImageFrame())
             {
                 if (null != depthFrame)
                 {
                     // Copy the pixel data from the image to a temporary array
                     depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
-
-                    depthReceived = true;
-
+                    
                     try
                     {
                         interactionStream.ProcessDepth(depthFrame.GetRawPixelData(), depthFrame.Timestamp);
@@ -464,8 +462,6 @@ namespace Gestenerkennung
                 {
                     // Copy the pixel data from the image to a temporary array
                     colorFrame.CopyPixelDataTo(this.colorPixels);
-
-                    colorReceived = true;
                 }
             }
 
@@ -594,6 +590,8 @@ namespace Gestenerkennung
         {
             int firstPlayer = playerOrder.Dequeue();
             playerOrder.Enqueue(firstPlayer);
+
+            GameInterface.PlayerEntered();
         }
     }
 }
