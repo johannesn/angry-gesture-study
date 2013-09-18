@@ -40,11 +40,12 @@ namespace Gestenerkennung
         private Skeleton[] skeletonData;
         private UserInfo[] userInfos; //the information about the interactive users
         private InterfaceState interfaceState;
-        private Dictionary<Pointer.PointerType, Point> scrollingAnchor;
-        private Dictionary<Pointer.PointerType, double> backMovement;
-        private Dictionary<Pointer.PointerType, bool> pressed;
-        private Dictionary<Pointer.PointerType, bool> gripped;
-        private Dictionary<Pointer.PointerType, Vector3> previousHandPosition;
+        private Point[] scrollingAnchor;
+        private double[] backMovement;
+        private double[] angle;
+        private bool[] pressed;
+        private bool[] gripped;
+        private Vector3[] previousHandPosition;
 
         private enum InterfaceState { Idle, Firing, Scrolling, Zooming };
         private Pointer.PointerType activeHand;
@@ -122,15 +123,16 @@ namespace Gestenerkennung
 
         private void initialize()
         {
-            scrollingAnchor = new Dictionary<Pointer.PointerType, Point>();
-            pressed = new Dictionary<Pointer.PointerType, bool>();
-            pressed[Pointer.PointerType.HandRight] = false;
-            pressed[Pointer.PointerType.HandLeft] = false;
-            gripped = new Dictionary<Pointer.PointerType, bool>();
-            gripped[Pointer.PointerType.HandRight] = false;
-            gripped[Pointer.PointerType.HandLeft] = false;
-            backMovement = new Dictionary<Pointer.PointerType, double>();
-            previousHandPosition = new Dictionary<Pointer.PointerType, Vector3>();
+            scrollingAnchor = new Point[2];
+            pressed = new bool[2];
+            pressed[(int)Pointer.PointerType.HandRight] = false;
+            pressed[(int)Pointer.PointerType.HandLeft] = false;
+            gripped = new bool[2];
+            gripped[(int)Pointer.PointerType.HandRight] = false;
+            gripped[(int)Pointer.PointerType.HandLeft] = false;
+            backMovement = new double[2];
+            angle = new double[2];
+            previousHandPosition = new Vector3[2];
             interfaceState = InterfaceState.Idle;
         }
 
@@ -199,61 +201,65 @@ namespace Gestenerkennung
 
         private Dictionary<Pointer.PointerType, Pointer> ExtractPointer(int userID, System.Collections.ObjectModel.ReadOnlyCollection<InteractionHandPointer> hands)
         {
-            Dictionary<Pointer.PointerType, Pointer> pointer = new Dictionary<Pointer.PointerType, Pointer>();
+            Dictionary<Pointer.PointerType, Pointer> pointer = new Dictionary<Pointer.PointerType, Pointer>(2);
             Pointer leftPointer, rightPointer;
             InteractionHandPointer leftHand, rightHand;
             foreach (var hand in hands)
             {
                 Pointer.PointerType pointerType = hand.HandType.Equals(InteractionHandType.Left) ? Pointer.PointerType.HandLeft : Pointer.PointerType.HandRight;
                 if (hand.IsTracked && hand.IsActive && !hand.HandType.Equals(InteractionHandType.None)
-                    || pressed[pointerType] || gripped[pointerType])
+                    || pressed[(int)pointerType] || gripped[(int)pointerType])
                 {
                     Pointer p = new Pointer();
                     p.point = hand.HandType.Equals(InteractionHandType.Left) ? new Point((int)(hand.X * mainFrame.Width / 2.0d), (int)(hand.Y * mainFrame.Height))
                         : new Point((int)(hand.X * mainFrame.Width / 2.0d) + mainFrame.Width / 2, (int)(hand.Y * mainFrame.Height));
                     p.type = hand.HandType.Equals(InteractionHandType.Left) ? Pointer.PointerType.HandLeft : Pointer.PointerType.HandRight;
 
-                    if (hand.IsPressed)
+                    if (hand.IsPressed && !pressed[(int)p.type])
                     {
-                        pressed[p.type] = true;
-                        previousHandPosition[p.type] = new Vector3((float)hand.RawX, (float)hand.RawY, (float)hand.RawZ);
-                        backMovement[p.type] = 0;
+                        pressed[(int)p.type] = true;
+                        previousHandPosition[(int)p.type] = new Vector3((float)hand.RawX, (float)hand.RawY, (float)hand.RawZ);
+                        backMovement[(int)p.type] = 0.0d;
+                        double a = getAngle(userID, p.type);
+                        angle[(int)p.type] = a;
                     }
-                    else if (pressed[p.type] && previousHandPosition.ContainsKey(p.type))
+                    else if (pressed[(int)p.type] && previousHandPosition[(int)p.type] != Vector3.Zero)
                     {
-                        Vector3 oldPosition = previousHandPosition[p.type];
+                        Vector3 oldPosition = previousHandPosition[(int)p.type];
                         Vector3 newPosition = new Vector3((float)hand.RawX, (float)hand.RawY, (float)hand.RawZ);
                         Vector3 movement = newPosition - oldPosition;
                         double moveZ = movement.Z;
                         movement.Normalize();
-                        double angle = Math.Acos(movement.Z);
-                        if ((angle <= Math.PI / 4.0d || angle >= 3.0d * Math.PI / 4.0d) && moveZ < 0)
+                        double a = Math.Acos(movement.Z);
+                        double b = angle[(int)p.type] - getAngle(userID, p.type);
+                        //Console.Out.WriteLine(b);
+                        if ((a <= Math.PI / 4.0d || a >= 3.0d * Math.PI / 4.0d) && moveZ < 0 || b > Math.PI / 4.0d)
                         {
-                            backMovement[p.type] += moveZ;
-                            if (backMovement[p.type] <= 0.2d)
+                            backMovement[(int)p.type] += moveZ;
+                            if (backMovement[(int)p.type] <= 0.2d || b > Math.PI / 4.0d)
                             {
-                                pressed[p.type] = false;
-                                previousHandPosition.Remove(p.type);
+                                pressed[(int)p.type] = false;
+                                previousHandPosition[(int)p.type] = Vector3.Zero;
                             }
                         }
                         else
                         {
-                            backMovement[p.type] = 0.0d;
+                            backMovement[(int)p.type] = 0.0d;
                         }
                     }
 
-                    p.pressExtend = pressed[p.type] ? 1.0d : Math.Max(Math.Min(hand.PressExtent, 1.0d), 0.0d);
+                    p.pressExtend = pressed[(int)p.type] ? 1.0d : Math.Max(Math.Min(hand.PressExtent, 1.0d), 0.0d);
 
                     if (hand.HandEventType.Equals(InteractionHandEventType.Grip))
                     {
-                        gripped[p.type] = true;
+                        gripped[(int)p.type] = true;
                     }
                     else if (hand.HandEventType.Equals(InteractionHandEventType.GripRelease))
                     {
-                        gripped[p.type] = false;
+                        gripped[(int)p.type] = false;
                     }
-                    p.state = hand.HandEventType.Equals(InteractionHandEventType.Grip) || gripped[p.type] ? Pointer.PointerState.PointerClosed
-                        : pressed[p.type] ? Pointer.PointerState.PointerPress : Pointer.PointerState.PointerOpen;
+                    p.state = hand.HandEventType.Equals(InteractionHandEventType.Grip) || gripped[(int)p.type] ? Pointer.PointerState.PointerClosed
+                        : pressed[(int)p.type] ? Pointer.PointerState.PointerPress : Pointer.PointerState.PointerOpen;
 
                     pointer.Add(p.type, p);
 
@@ -270,6 +276,28 @@ namespace Gestenerkennung
                 }
             }
             return pointer;
+        }
+
+        private double getAngle(int userID, Pointer.PointerType p)
+        {
+            Skeleton s = skeletonData.First(i => i.TrackingId == userID);
+            Joint elbow, wrist, sholder;
+            if (p == Pointer.PointerType.HandLeft)
+            {
+                elbow = s.Joints[JointType.ElbowLeft];
+                wrist = s.Joints[JointType.WristLeft];
+                sholder = s.Joints[JointType.ShoulderLeft];
+            }
+            else
+            {
+                elbow = s.Joints[JointType.ElbowRight];
+                wrist = s.Joints[JointType.WristRight];
+                sholder = s.Joints[JointType.ShoulderRight];
+            }
+            Vector3 ellbowtohand = new Vector3(wrist.Position.X - elbow.Position.X, wrist.Position.Y - elbow.Position.Y, wrist.Position.Z - elbow.Position.Z);
+            Vector3 ellbowtoshoulder = new Vector3(sholder.Position.X - elbow.Position.X, sholder.Position.Y - elbow.Position.Y, sholder.Position.Z - elbow.Position.Z);
+            double a = Math.Acos((ellbowtohand.X * ellbowtoshoulder.X + ellbowtohand.Y * ellbowtoshoulder.Y + ellbowtohand.Z * ellbowtoshoulder.Z) / ellbowtohand.Length() / ellbowtoshoulder.Length());
+            return a;
         }
 
         private void UpdateGUI(Dictionary<Pointer.PointerType, Pointer> pointer)
@@ -306,15 +334,15 @@ namespace Gestenerkennung
                             else
                             {
                                 interfaceState = InterfaceState.Scrolling;
-                                scrollingAnchor[activeHand] = pointer[activeHand].point;
+                                scrollingAnchor[(int)activeHand] = pointer[activeHand].point;
                                 activityTime = System.Environment.TickCount;
                             }
                         }
                         else if (isTwoClosedPointer(pointer))
                         {
                             interfaceState = InterfaceState.Zooming;
-                            scrollingAnchor[Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
-                            scrollingAnchor[Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
+                            scrollingAnchor[(int)Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
+                            scrollingAnchor[(int)Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
                         }
                         break;
                     case InterfaceState.Scrolling:
@@ -326,16 +354,16 @@ namespace Gestenerkennung
                             }
                             else
                             {
-                                GameInterface.scroll(new Vector2(pointer[activeHand].point.X - scrollingAnchor[activeHand].X, pointer[activeHand].point.Y - scrollingAnchor[activeHand].Y));
-                                scrollingAnchor[activeHand] = pointer[activeHand].point;
+                                GameInterface.scroll(new Vector2(pointer[activeHand].point.X - scrollingAnchor[(int)activeHand].X, pointer[activeHand].point.Y - scrollingAnchor[(int)activeHand].Y));
+                                scrollingAnchor[(int)activeHand] = pointer[activeHand].point;
                             }
                         }
                         else if (isTwoClosedPointer(pointer))
                         {
-                            GameInterface.scroll(new Vector2(pointer[activeHand].point.X - scrollingAnchor[activeHand].X, pointer[activeHand].point.Y - scrollingAnchor[activeHand].Y));
+                            GameInterface.scroll(new Vector2(pointer[activeHand].point.X - scrollingAnchor[(int)activeHand].X, pointer[activeHand].point.Y - scrollingAnchor[(int)activeHand].Y));
                             interfaceState = InterfaceState.Zooming;
-                            scrollingAnchor[Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
-                            scrollingAnchor[Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
+                            scrollingAnchor[(int)Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
+                            scrollingAnchor[(int)Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
                         }
                         else
                         {
@@ -352,27 +380,27 @@ namespace Gestenerkennung
                         if (isOneClosedPointer(pointer))
                         {
                             activeHand = getClosedPointer(pointer);
-                            GameInterface.scroll(new Vector2(pointer[activeHand].point.X - scrollingAnchor[activeHand].X, pointer[activeHand].point.Y - scrollingAnchor[activeHand].Y));
-                            scrollingAnchor[activeHand] = pointer[activeHand].point;
+                            GameInterface.scroll(new Vector2(pointer[activeHand].point.X - scrollingAnchor[(int)activeHand].X, pointer[activeHand].point.Y - scrollingAnchor[(int)activeHand].Y));
+                            scrollingAnchor[(int)activeHand] = pointer[activeHand].point;
                             interfaceState = InterfaceState.Scrolling;
                         }
                         else if (isTwoClosedPointer(pointer))
                         {
-                            Vector2 oldLeftToRightHand = new Vector2(scrollingAnchor[Pointer.PointerType.HandLeft].X - scrollingAnchor[Pointer.PointerType.HandRight].X,
-                                scrollingAnchor[Pointer.PointerType.HandLeft].Y - scrollingAnchor[Pointer.PointerType.HandRight].Y);
+                            Vector2 oldLeftToRightHand = new Vector2(scrollingAnchor[(int)Pointer.PointerType.HandLeft].X - scrollingAnchor[(int)Pointer.PointerType.HandRight].X,
+                                scrollingAnchor[(int)Pointer.PointerType.HandLeft].Y - scrollingAnchor[(int)Pointer.PointerType.HandRight].Y);
                             Vector2 leftToRightHand = new Vector2(pointer[Pointer.PointerType.HandLeft].point.X - pointer[Pointer.PointerType.HandRight].point.X,
                                 pointer[Pointer.PointerType.HandLeft].point.Y - pointer[Pointer.PointerType.HandRight].point.Y);
 
                             zoomLevel = (float)Math.Max(Math.Min((leftToRightHand.Length() - oldLeftToRightHand.Length()) / 2000.0f + zoomLevel, 2.0f), 1.0f);
 
-                            Vector2 oldMiddle = new Vector2(scrollingAnchor[Pointer.PointerType.HandLeft].X, scrollingAnchor[Pointer.PointerType.HandLeft].Y) + oldLeftToRightHand / 2;
+                            Vector2 oldMiddle = new Vector2(scrollingAnchor[(int)Pointer.PointerType.HandLeft].X, scrollingAnchor[(int)Pointer.PointerType.HandLeft].Y) + oldLeftToRightHand / 2;
                             Vector2 newMiddle = new Vector2(pointer[Pointer.PointerType.HandLeft].point.X, pointer[Pointer.PointerType.HandLeft].point.Y) + leftToRightHand / 2;
                             Vector2 movement = oldMiddle - newMiddle;
 
                             GameInterface.zoom(zoomLevel, movement);
 
-                            scrollingAnchor[Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
-                            scrollingAnchor[Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
+                            scrollingAnchor[(int)Pointer.PointerType.HandRight] = pointer[Pointer.PointerType.HandRight].point;
+                            scrollingAnchor[(int)Pointer.PointerType.HandLeft] = pointer[Pointer.PointerType.HandLeft].point;
                         }
                         else
                         {

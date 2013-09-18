@@ -12,7 +12,7 @@ namespace Interfaces
     public struct Pointer
     {
         public enum PointerState { PointerClosed, PointerOpen, PointerPress };
-        public enum PointerType { HandLeft, HandRight };
+        public enum PointerType { HandLeft = 0, HandRight = 1};
         public Point point;
         public PointerType type;
         public PointerState state;
