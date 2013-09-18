@@ -553,11 +553,11 @@ namespace AngryBirdsStudie3
             if (soundEngineInstance == null)
             {
                 soundEngineInstance = soundEngine.CreateInstance();
+                soundEngineInstance.IsLooped = true;
             }
             if (soundEngineInstance.State == SoundState.Stopped)
             {
                 soundEngineInstance.Volume = 1.0f;
-                soundEngineInstance.IsLooped = true;
                 soundEngineInstance.Play();
             }
 
