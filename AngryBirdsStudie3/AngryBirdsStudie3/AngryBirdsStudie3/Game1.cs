@@ -97,7 +97,7 @@ namespace AngryBirdsStudie3
             Content.RootDirectory = "Content";
             this.graphics.PreferredBackBufferWidth = 1920;
             this.graphics.PreferredBackBufferHeight = 1080;
-            //graphics.IsFullScreen = true;
+            graphics.IsFullScreen = true;
         }
 
         /// <summary>
@@ -550,14 +550,15 @@ namespace AngryBirdsStudie3
 
         public void PlayerEntered()
         {
-            if (soundEngineInstance == null)
+            if (soundEngineInstance != null)
             {
-                soundEngineInstance = soundEngine.CreateInstance();
-                soundEngineInstance.IsLooped = true;
+                soundEngineInstance.Stop();
             }
+            soundEngineInstance = soundEngine.CreateInstance();
             if (soundEngineInstance.State == SoundState.Stopped)
             {
                 soundEngineInstance.Volume = 1.0f;
+                soundEngineInstance.IsLooped = true;
                 soundEngineInstance.Play();
             }
 
